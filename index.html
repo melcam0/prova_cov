@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Statistics Laboratory: Covariance and Correlation</title>
+    <!-- Tailwind CSS per uno stile moderno e pulito -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Plotly.js per la visualizzazione scientifica interattiva -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <!-- FontAwesome per le icone didattiche -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .slider-thumb::-webkit-slider-thumb {
+            background: #4f46e5;
+        }
+        /* Contenitore con aspect-ratio rigorosamente quadrato (1:1) per laisometricità */
+        #scatter-plot {
+            aspect-ratio: 1 / 1;
+            width: 100%;
+            max-height: 540px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen flex flex-col justify-between">
+
+    <!-- Contenitore Principale -->
+    <main class="max-w-7xl mx-auto w-full px-4 py-8 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start flex-grow">
+        
+        <!-- Colonna Sinistra: Pannello Controlli e Matrici Statistiche (5 Colonne) -->
+        <div class="lg:col-span-5 space-y-6">
+            
+            <!-- Card Controlli Interattivi dei Parametri -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                <h2 class="text-base font-semibold text-slate-900 mb-4 flex items-center">
+                    <i class="fa-solid fa-sliders text-indigo-600 mr-2"></i> Parameter Controls
+                </h2>
+
+                <div class="space-y-5">
+                    <!-- Ampiezza Campionaria n -->
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="font-medium text-slate-700">Sample Size (<em>n</em>)</span>
+                            <span id="n-val" class="font-bold text-indigo-600">100</span>
+                        </div>
+                        <input type="range" id="n-slider" min="20" max="500" step="10" value="100" 
+                            class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                    </div>
+
+                    <!-- Correlazione Target r -->
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="font-medium text-slate-700">Target Correlation (<em>r</em>)</span>
+                            <span id="r-val" class="font-bold text-indigo-600">0.70</span>
+                        </div>
+                        <input type="range" id="r-slider" min="-0.99" max="0.99" step="0.05" value="0.70" 
+                            class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                    </div>
+
+                    <!-- Deviazione Standard X -->
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="font-medium text-slate-700">Std. Deviation X (&sigma;<sub>x</sub>)</span>
+                            <span id="sdx-val" class="font-bold text-indigo-600">2.0</span>
+                        </div>
+                        <input type="range" id="sdx-slider" min="0.5" max="5.0" step="0.1" value="2.0" 
+                            class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                    </div>
+
+                    <!-- Deviazione Standard Y -->
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="font-medium text-slate-700">Std. Deviation Y (&sigma;<sub>y</sub>)</span>
+                            <span id="sdy-val" class="font-bold text-indigo-600">2.0</span>
+                        </div>
+                        <input type="range" id="sdy-slider" min="0.5" max="5.0" step="0.1" value="2.0" 
+                            class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                    </div>
+
+                    <!-- Toggle Outlier Estremo -->
+                    <div class="pt-2 border-t border-slate-100 flex items-center justify-between">
+                        <div>
+                            <span class="text-sm font-medium text-slate-700 block">Include Extreme Outlier</span>
+                            <span class="text-xs text-slate-500">Evaluate covariance vs correlation robustness</span>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="outlier-toggle" class="sr-only peer">
+                            <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Matrici Statistiche (Covarianza e Correlazione) -->
+            <div class="grid grid-cols-1 gap-4">
+                
+                <!-- Matrice di Covarianza -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+                    <h3 class="text-sm font-semibold text-slate-900 mb-2 flex items-center">
+                        <i class="fa-solid fa-table-cells text-indigo-600 mr-2"></i> Sample Covariance Matrix <em>S</em>
+                    </h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-center text-xs font-mono">
+                            <thead>
+                                <tr class="border-b text-slate-400">
+                                    <th class="py-1"></th>
+                                    <th class="py-1">X</th>
+                                    <th class="py-1">Y</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <tr>
+                                    <td class="font-semibold text-slate-500 py-2">X</td>
+                                    <td id="cov-xx" class="py-2 text-slate-800 font-bold">0.00</td>
+                                    <td id="cov-xy" class="py-2 text-slate-800">0.00</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-semibold text-slate-500 py-2">Y</td>
+                                    <td id="cov-yx" class="py-2 text-slate-800">0.00</td>
+                                    <td id="cov-yy" class="py-2 text-slate-800 font-bold">0.00</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="text-[11px] text-slate-500 mt-2">Note: Main diagonal shows sample variances (s<sub>x</sub><sup>2</sup>, s<sub>y</sub><sup>2</sup>).</p>
+                </div>
+
+                <!-- Matrice di Correlazione -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+                    <h3 class="text-sm font-semibold text-slate-900 mb-2 flex items-center">
+                        <i class="fa-solid fa-table-cells-large text-indigo-600 mr-2"></i> Sample Correlation Matrix <em>R</em>
+                    </h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-center text-xs font-mono">
+                            <thead>
+                                <tr class="border-b text-slate-400">
+                                    <th class="py-1"></th>
+                                    <th class="py-1">X</th>
+                                    <th class="py-1">Y</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <tr>
+                                    <td class="font-semibold text-slate-500 py-2">X</td>
+                                    <td class="py-2 text-slate-800 font-bold">1.00</td>
+                                    <td id="cor-xy" class="py-2 text-indigo-600 font-bold">0.00</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-semibold text-slate-500 py-2">Y</td>
+                                    <td id="cor-yx" class="py-2 text-indigo-600 font-bold">0.00</td>
+                                    <td class="py-2 text-slate-800 font-bold">1.00</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="text-[11px] text-slate-500 mt-2">Note: Pearson's r coefficient is dimensionless and scale-invariant.</p>
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- Colonna Destra: Diagramma di Dispersione con Assi Condivisi 1:1 (7 Colonne) -->
+        <div class="lg:col-span-7">
+            
+            <!-- Card del Grafico allineata superiormente con la colonna sinistra -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col items-center">
+                <div class="w-full flex justify-between items-center mb-2 px-2">
+                    <h2 class="text-base font-semibold text-slate-900">Scatter Diagram (Shared Axes 1:1)</h2>
+                    <span id="axis-range-badge" class="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded font-mono">Range: [-5.0, 5.0]</span>
+                </div>
+                <!-- Container Plotly con aspect-ratio isometrico garantito -->
+                <div id="scatter-plot"></div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Piè di pagina -->
+    <footer class="bg-white border-t border-slate-200 py-4 px-6 text-center text-xs text-slate-500 mt-6">
+        <p>Interactive Statistics Laboratory &bull; Designed for Academic Teaching</p>
+    </footer>
+
+    <!-- Motore di Simulazione Statistica e Gestione Grafica (JavaScript) -->
+    <script>
+        // Riferimenti agli elementi di input del DOM
+        const nSlider = document.getElementById('n-slider');
+        const rSlider = document.getElementById('r-slider');
+        const sdxSlider = document.getElementById('sdx-slider');
+        const sdySlider = document.getElementById('sdy-slider');
+        const outlierToggle = document.getElementById('outlier-toggle');
+
+        const nVal = document.getElementById('n-val');
+        const rVal = document.getElementById('r-val');
+        const sdxVal = document.getElementById('sdx-val');
+        const sdyVal = document.getElementById('sdy-val');
+        const axisBadge = document.getElementById('axis-range-badge');
+
+        const covXX = document.getElementById('cov-xx');
+        const covXY = document.getElementById('cov-xy');
+        const covYX = document.getElementById('cov-yx');
+        const covYY = document.getElementById('cov-yy');
+        const corXY = document.getElementById('cor-xy');
+        const corYX = document.getElementById('cor-yx');
+
+        // Generatore di numeri casuali normali standard (Algoritmo Box-Muller)
+        function randn() {
+            let u = 0, v = 0;
+            while(u === 0) u = Math.random();
+            while(v === 0) v = Math.random();
+            return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+        }
+
+        // Funzione di aggiornamento della dashboard e ricalcolo statistico
+        function updateDashboard() {
+            const n = parseInt(nSlider.value);
+            const targetR = parseFloat(rSlider.value);
+            const sdx = parseFloat(sdxSlider.value);
+            const sdy = parseFloat(sdySlider.value);
+            const hasOutlier = outlierToggle.checked;
+
+            // Aggiornamento etichette testuali dei controlli
+            nVal.textContent = n;
+            rVal.textContent = targetR.toFixed(2);
+            sdxVal.textContent = sdx.toFixed(1);
+            sdyVal.textContent = sdy.toFixed(1);
+
+            // Generazione dati bivariati centrati in (0,0) con correlazione target
+            let x = [];
+            let y = [];
+
+            for (let i = 0; i < n; i++) {
+                let z1 = randn();
+                let z2 = randn();
+                
+                // Decomposizione di Cholesky per imporre la correlazione desiderata
+                let xi = z1;
+                let yi = targetR * z1 + Math.sqrt(1 - targetR * targetR) * z2;
+
+                // Scalatura con le deviazioni standard richieste
+                let X_val = xi * sdx;
+                let Y_val = yi * sdy;
+
+                x.push(X_val);
+                y.push(Y_val);
+            }
+
+            // Inserimento opzionale di un outlier estremo
+            if (hasOutlier) {
+                let maxSpread = Math.max(sdx, sdy) * 2.5;
+                x.push(maxSpread);
+                y.push(maxSpread);
+            }
+
+            const totalN = x.length;
+
+            // Calcolo medie campionarie
+            let meanX = x.reduce((a, b) => a + b, 0) / totalN;
+            let meanY = y.reduce((a, b) => a + b, 0) / totalN;
+
+            // Calcolo varianze campionarie e covarianza
+            let varX = 0, varY = 0, covXY_val = 0;
+            for (let i = 0; i < totalN; i++) {
+                let dx = x[i] - meanX;
+                let dy = y[i] - meanY;
+                varX += dx * dx;
+                varY += dy * dy;
+                covXY_val += dx * dy;
+            }
+            varX /= (totalN - 1);
+            varY /= (totalN - 1);
+            covXY_val /= (totalN - 1);
+
+            // Calcolo coefficiente di correlazione campionaria r di Pearson
+            let sampleR = covXY_val / (Math.sqrt(varX) * Math.sqrt(varY));
+
+            // Aggiornamento tabelle HTML delle matrici
+            covXX.textContent = varX.toFixed(2);
+            covXY.textContent = covXY_val.toFixed(2);
+            covYX.textContent = covXY_val.toFixed(2);
+            covYY.textContent = varY.toFixed(2);
+
+            corXY.textContent = sampleR.toFixed(2);
+            corYX.textContent = sampleR.toFixed(2);
+
+            // CALCOLO LIMITI SIMMETRICI CONDIVISI (X_min = Y_min e X_max = Y_max)
+            let maxSpread = Math.max(sdx, sdy);
+            if (hasOutlier) maxSpread *= 1.3;
+            
+            let sharedLimit = Math.max(maxSpread * 2.2, 4.0);
+            let minLimit = -sharedLimit;
+            let maxLimit = sharedLimit;
+
+            // Aggiornamento badge del range di assi
+            axisBadge.textContent = `Range: [${minLimit.toFixed(1)}, ${maxLimit.toFixed(1)}]`;
+
+            // Configurazione della traccia del diagramma di dispersione
+            const scatterTrace = {
+                x: x,
+                y: y,
+                mode: 'markers',
+                type: 'scatter',
+                name: 'Observations',
+                marker: {
+                    color: '#4f46e5',
+                    size: 8,
+                    opacity: 0.75,
+                    line: { color: '#ffffff', width: 1 }
+                },
+                hoverinfo: 'x+y'
+            };
+
+            // Configurazione layout Plotly con limiti identici e aspect ratio isometrico 1:1
+            const layout = {
+                xaxis: {
+                    title: { text: 'Variable X', font: { size: 12 } },
+                    range: [minLimit, maxLimit],
+                    zeroline: true,
+                    zerolinewidth: 2,
+                    zerolinecolor: '#64748b',
+                    gridcolor: '#e2e8f0',
+                    showline: true,
+                    linewidth: 1,
+                    linecolor: '#cbd5e1'
+                },
+                yaxis: {
+                    title: { text: 'Variable Y', font: { size: 12 } },
+                    range: [minLimit, maxLimit],
+                    zeroline: true,
+                    zerolinewidth: 2,
+                    zerolinecolor: '#64748b',
+                    gridcolor: '#e2e8f0',
+                    showline: true,
+                    linewidth: 1,
+                    linecolor: '#cbd5e1',
+                    scaleanchor: 'x',
+                    scaleratio: 1
+                },
+                margin: { t: 20, r: 20, b: 40, l: 50 },
+                paper_bgcolor: 'transparent',
+                plot_bgcolor: 'transparent',
+                showlegend: false,
+                autosize: true
+            };
+
+            const config = {
+                responsive: true,
+                displayModeBar: false
+            };
+
+            Plotly.react('scatter-plot', [scatterTrace], layout, config);
+        }
+
+        // Registrazione degli ascoltatori di eventi sui controlli interattivi
+        nSlider.addEventListener('input', updateDashboard);
+        rSlider.addEventListener('input', updateDashboard);
+        sdxSlider.addEventListener('input', updateDashboard);
+        sdySlider.addEventListener('input', updateDashboard);
+        outlierToggle.addEventListener('change', updateDashboard);
+
+        // Render iniziale al caricamento della pagina e gestione ridimensionamento
+        window.addEventListener('DOMContentLoaded', updateDashboard);
+        window.addEventListener('resize', () => {
+            Plotly.Plots.resize('scatter-plot');
+        });
+    </script>
+</body>
+</html>
